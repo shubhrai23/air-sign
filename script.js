@@ -59,8 +59,13 @@ hands.onResults(res => {
   const index = lm[8];
   const thumb = lm[4];
 
-  const pinch =
-    Math.hypot(index.x - thumb.x, index.y - thumb.y) < 0.04;
+const pinchDistance = Math.hypot(
+  index.x - thumb.x,
+  index.y - thumb.y
+);
+
+const pinch = pinchDistance < 0.07;
+
 
   // ✅ ALWAYS draw in CANVAS coordinates
   const x = index.x * canvas.width;
