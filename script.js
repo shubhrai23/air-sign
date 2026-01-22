@@ -56,22 +56,17 @@ hands.onResults(res => {
   }
 
   const lm = res.multiHandLandmarks[0];
-  const index = lm[8];
-  const thumb = lm[4];
 
-const pinchDistance = Math.hypot(
-  index.x - thumb.x,
-  index.y - thumb.y
-);
+  const indexTip = lm[8];
+  const indexPip = lm[6]; // middle joint of index finger
 
-const pinch = pinchDistance < 0.09;
+  // ✅ index finger extended = drawing mode
+  const indexExtended = indexTip.y < indexPip.y;
 
+  const x = indexTip.x * canvas.width;
+  const y = indexTip.y * canvas.height;
 
-  // ✅ ALWAYS draw in CANVAS coordinates
-  const x = index.x * canvas.width;
-  const y = index.y * canvas.height;
-
-  if (index) {
+  if (indexExtended) {
     drawing = true;
     points.push({ x, y });
     drawSmooth(points, color, size);
@@ -141,5 +136,3 @@ document.getElementById("svg").onclick = () => {
   a.download = "signature.svg";
   a.click();
 };
-
-
