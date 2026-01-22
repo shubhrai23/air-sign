@@ -28,6 +28,7 @@ let lastX = null;
 let lastY = null;
 
 hands.onResults(res => {
+  console.log("HAND RESULTS FIRED");
   if (!res.multiHandLandmarks) {
     lastX = null;
     lastY = null;
@@ -69,3 +70,4 @@ document.getElementById("clear").onclick = () => {
   lastX = null;
   lastY = null;
 };
+
