@@ -54,16 +54,18 @@ hands.onResults(res => {
     return;
   }
 
-  const lm = res.multiHandLandmarks[0];
-  const indexTip = lm[8];
+  const indexTip = res.multiHandLandmarks[0][8];
 
   const x = indexTip.x * canvas.width;
   const y = indexTip.y * canvas.height;
 
   drawing = true;
   points.push({ x, y });
+
+  // draw only new stroke, do NOT clear canvas
   drawSmooth(points, color, size);
 });
+
 
 // Smooth stroke
 function drawSmooth(pts, stroke, w) {
@@ -124,3 +126,4 @@ document.getElementById("svg").onclick = () => {
   a.download = "signature.svg";
   a.click();
 };
+
