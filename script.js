@@ -1,9 +1,14 @@
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+ctx.setTransform(-1, 0, 0, 1, canvas.width, 0);
 
-canvas.width = 360;
-canvas.height = 270;
+
+video.addEventListener("loadedmetadata", () => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+});
+
 
 let drawing = false;
 let points = [];
@@ -45,8 +50,8 @@ hands.onResults(res => {
   const dy = index.y - thumb.y;
   const pinch = Math.hypot(dx, dy) < 0.04;
 
-  const x = index.x * canvas.width;
-  const y = index.y * canvas.height;
+const x = index.x * video.videoWidth;
+const y = index.y * video.videoHeight;
 
   if (pinch) {
     drawing = true;
