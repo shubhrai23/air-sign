@@ -71,7 +71,7 @@ const pinch = pinchDistance < 0.07;
   const x = index.x * canvas.width;
   const y = index.y * canvas.height;
 
-  if (pinch) {
+  if (index) {
     drawing = true;
     points.push({ x, y });
     drawSmooth(points, color, size);
@@ -141,3 +141,4 @@ document.getElementById("svg").onclick = () => {
   a.download = "signature.svg";
   a.click();
 };
+
