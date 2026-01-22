@@ -49,7 +49,7 @@ hands.onResults(results => {
   const x = indexTip.x * canvas.width;
   const y = indexTip.y * canvas.height;
 
-  ctx.strokeStyle = "white";
+  ctx.strokeStyle = "black";
   ctx.lineWidth = 3;
   ctx.lineCap = "round";
 
@@ -79,3 +79,4 @@ document.getElementById("clear").onclick = () => {
   lastX = null;
   lastY = null;
 };
+
