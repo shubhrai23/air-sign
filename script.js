@@ -1,14 +1,9 @@
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-ctx.setTransform(-1, 0, 0, 1, canvas.width, 0);
 
-
-video.addEventListener("loadedmetadata", () => {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-});
-
+// ❌ DO NOT mirror canvas with setTransform
+// ❌ DO NOT set canvas size manually here
 
 let drawing = false;
 let points = [];
@@ -19,12 +14,27 @@ let size = 3;
 document.getElementById("color").oninput = e => color = e.target.value;
 document.getElementById("size").oninput = e => size = e.target.value;
 
-// Camera
-navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-  video.srcObject = stream;
+// ✅ Start camera safely
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user" }
+    });
+    video.srcObject = stream;
+  } catch (err) {
+    alert("No camera detected. Open this site on your phone 📱");
+    console.error(err);
+  }
+}
+startCamera();
+
+// ✅ Set canvas size AFTER video actually loads
+video.addEventListener("loadedmetadata", () => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
 });
 
-// MediaPipe
+// MediaPipe Hands
 const hands = new Hands({
   locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
@@ -37,6 +47,9 @@ hands.setOptions({
 
 hands.onResults(res => {
   if (!res.multiHandLandmarks) {
+    if (drawing && points.length > 1) {
+      paths.push({ points: [...points], color, size });
+    }
     drawing = false;
     points = [];
     return;
@@ -46,12 +59,12 @@ hands.onResults(res => {
   const index = lm[8];
   const thumb = lm[4];
 
-  const dx = index.x - thumb.x;
-  const dy = index.y - thumb.y;
-  const pinch = Math.hypot(dx, dy) < 0.04;
+  const pinch =
+    Math.hypot(index.x - thumb.x, index.y - thumb.y) < 0.04;
 
-const x = index.x * video.videoWidth;
-const y = index.y * video.videoHeight;
+  // ✅ ALWAYS draw in CANVAS coordinates
+  const x = index.x * canvas.width;
+  const y = index.y * canvas.height;
 
   if (pinch) {
     drawing = true;
@@ -67,6 +80,7 @@ const y = index.y * video.videoHeight;
 // Smooth drawing
 function drawSmooth(pts, stroke, w) {
   if (pts.length < 2) return;
+
   ctx.strokeStyle = stroke;
   ctx.lineWidth = w;
   ctx.lineCap = "round";
@@ -81,11 +95,11 @@ function drawSmooth(pts, stroke, w) {
   ctx.stroke();
 }
 
-// Camera feed
+// Camera feed to MediaPipe
 const camera = new Camera(video, {
-  onFrame: async () => await hands.send({ image: video }),
-  width: 360,
-  height: 270
+  onFrame: async () => {
+    await hands.send({ image: video });
+  }
 });
 camera.start();
 
@@ -93,6 +107,7 @@ camera.start();
 document.getElementById("clear").onclick = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   paths = [];
+  points = [];
 };
 
 // PNG
