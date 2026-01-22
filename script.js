@@ -19,7 +19,7 @@ async function startCamera() {
 }
 startCamera();
 
-// Match canvas size to actual video feed
+// Match canvas to video size
 video.addEventListener("loadedmetadata", () => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -36,7 +36,7 @@ hands.setOptions({
   minTrackingConfidence: 0.6
 });
 
-// ================= DRAWING =================
+// ================= DRAW =================
 hands.onResults(results => {
   if (!results.multiHandLandmarks) {
     lastX = null;
@@ -49,8 +49,8 @@ hands.onResults(results => {
   const x = indexTip.x * canvas.width;
   const y = indexTip.y * canvas.height;
 
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#ffffff";   // 🔥 VISIBLE
+  ctx.lineWidth = 4;
   ctx.lineCap = "round";
 
   if (lastX !== null) {
@@ -64,7 +64,8 @@ hands.onResults(results => {
   lastY = y;
 });
 
-// ================= FRAME LOOP (CRITICAL FIX) =================
+// ================= FRAME LOOP =================
+// ❌ DO NOT use MediaPipe Camera helper (breaks on iOS)
 async function processFrame() {
   if (video.readyState >= 2) {
     await hands.send({ image: video });
@@ -79,4 +80,3 @@ document.getElementById("clear").onclick = () => {
   lastX = null;
   lastY = null;
 };
-
