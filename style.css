@@ -7,7 +7,7 @@ video {
   border-radius: 12px;
   position: relative;
   z-index: 1;
-  transform: scaleX(-1); /* mirror selfie */
+  transform: scaleX(-1);
 }
 
 canvas {
