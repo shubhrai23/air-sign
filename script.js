@@ -34,31 +34,14 @@ hands.setOptions({
   minTrackingConfidence: 0.7
 });
 
-hands.onResults(results => {
-  if (!results.multiHandLandmarks) {
-    lastX = null;
-    lastY = null;
-    return;
-  }
+hands.onResults(res => {
+  console.log("hands.onResults fired");
 
-  const indexFinger = results.multiHandLandmarks[0][8];
+  if (!res.multiHandLandmarks) return;
 
-  const x = indexFinger.x * canvas.width;
-  const y = indexFinger.y * canvas.height;
-
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-
-  if (lastX !== null) {
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  }
-
-  lastX = x;
-  lastY = y;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "red";
+  ctx.fillRect(20, 20, 50, 50);
 });
 
 // Camera → MediaPipe loop
@@ -75,3 +58,4 @@ document.getElementById("clear").onclick = () => {
   lastX = null;
   lastY = null;
 };
+
