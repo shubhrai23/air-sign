@@ -2,19 +2,17 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// ❌ DO NOT mirror canvas with setTransform
-// ❌ DO NOT set canvas size manually here
-
 let drawing = false;
 let points = [];
 let paths = [];
 let color = "#ffffff";
 let size = 3;
 
+// UI controls
 document.getElementById("color").oninput = e => color = e.target.value;
 document.getElementById("size").oninput = e => size = e.target.value;
 
-// ✅ Start camera safely
+// Start camera
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -22,13 +20,13 @@ async function startCamera() {
     });
     video.srcObject = stream;
   } catch (err) {
-    alert("No camera detected. Open this site on your phone 📱");
+    alert("Camera not available. Open on phone.");
     console.error(err);
   }
 }
 startCamera();
 
-// ✅ Set canvas size AFTER video actually loads
+// Match canvas to video size
 video.addEventListener("loadedmetadata", () => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -41,10 +39,11 @@ const hands = new Hands({
 
 hands.setOptions({
   maxNumHands: 1,
-  minDetectionConfidence: 0.7,
-  minTrackingConfidence: 0.7
+  minDetectionConfidence: 0.6,
+  minTrackingConfidence: 0.6
 });
 
+// 🔥 CORE LOGIC — ALWAYS DRAW INDEX FINGER
 hands.onResults(res => {
   if (!res.multiHandLandmarks) {
     if (drawing && points.length > 1) {
@@ -56,28 +55,17 @@ hands.onResults(res => {
   }
 
   const lm = res.multiHandLandmarks[0];
-
   const indexTip = lm[8];
-  const indexPip = lm[6]; // middle joint of index finger
-
-  // ✅ index finger extended = drawing mode
-  const indexExtended = indexTip.y < indexPip.y;
 
   const x = indexTip.x * canvas.width;
   const y = indexTip.y * canvas.height;
 
-  if (indexExtended) {
-    drawing = true;
-    points.push({ x, y });
-    drawSmooth(points, color, size);
-  } else if (drawing) {
-    paths.push({ points: [...points], color, size });
-    points = [];
-    drawing = false;
-  }
+  drawing = true;
+  points.push({ x, y });
+  drawSmooth(points, color, size);
 });
 
-// Smooth drawing
+// Smooth stroke
 function drawSmooth(pts, stroke, w) {
   if (pts.length < 2) return;
 
@@ -95,7 +83,7 @@ function drawSmooth(pts, stroke, w) {
   ctx.stroke();
 }
 
-// Camera feed to MediaPipe
+// Camera feed loop
 const camera = new Camera(video, {
   onFrame: async () => {
     await hands.send({ image: video });
@@ -106,11 +94,11 @@ camera.start();
 // Clear
 document.getElementById("clear").onclick = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  paths = [];
   points = [];
+  paths = [];
 };
 
-// PNG
+// PNG export
 document.getElementById("png").onclick = () => {
   const a = document.createElement("a");
   a.download = "signature.png";
@@ -118,7 +106,7 @@ document.getElementById("png").onclick = () => {
   a.click();
 };
 
-// SVG
+// SVG export
 document.getElementById("svg").onclick = () => {
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">`;
   paths.forEach(p => {
