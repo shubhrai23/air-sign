@@ -64,7 +64,7 @@ const pinchDistance = Math.hypot(
   index.y - thumb.y
 );
 
-const pinch = pinchDistance < 0.07;
+const pinch = pinchDistance < 0.09;
 
 
   // ✅ ALWAYS draw in CANVAS coordinates
@@ -141,4 +141,5 @@ document.getElementById("svg").onclick = () => {
   a.download = "signature.svg";
   a.click();
 };
+
 
