@@ -11,29 +11,22 @@ let smoothX = null;
 let smoothY = null;
 let isDrawing = false;
 
-// ======== CONFIG (tweakable) ========
-const PINCH_THRESHOLD = 22;   // tighter pinch
-const SMOOTHING = 0.85;       // higher = smoother (0.6–0.85)
+// ===== CONFIG =====
+const PINCH_START = 26;     // must pinch THIS tight to start
+const PINCH_END = 38;       // must open THIS much to stop
+const SMOOTHING = 0.78;
+const MIN_MOVE = 2;         // px, ignore micro jitter
 
 // ================= CAMERA =================
 startBtn.onclick = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user" }
-    });
-    video.srcObject = stream;
-    startBtn.style.display = "none";
-    await loadModel();
-    requestAnimationFrame(loop);
-  } catch {
-    alert("Camera permission denied");
-  }
-};
-
-// ================= MODEL =================
-async function loadModel() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user" }
+  });
+  video.srcObject = stream;
+  startBtn.style.display = "none";
   model = await handpose.load();
-}
+  requestAnimationFrame(loop);
+};
 
 // ================= CANVAS SIZE =================
 video.onloadedmetadata = () => {
@@ -42,65 +35,61 @@ video.onloadedmetadata = () => {
 };
 
 // ================= UTILS =================
-function distance(a, b) {
-  return Math.hypot(a[0] - b[0], a[1] - b[1]);
-}
-
-function smooth(prev, curr, factor) {
-  return prev * factor + curr * (1 - factor);
-}
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const lerp = (p, c, f) => p * f + c * (1 - f);
 
 // ================= MAIN LOOP =================
 async function loop() {
   if (model && video.readyState === 4) {
-    const predictions = await model.estimateHands(video);
+    const preds = await model.estimateHands(video);
 
-    if (predictions.length > 0) {
-      const lm = predictions[0].landmarks;
+    if (preds.length) {
+      const lm = preds[0].landmarks;
       const index = lm[8];
       const thumb = lm[4];
 
-      const pinchDist = distance(index, thumb);
+      const pinchDist = dist(index, thumb);
 
-      const rawX = canvas.width - index[0]; // mirror
+      const rawX = canvas.width - index[0];
       const rawY = index[1];
 
-      // 🔥 SMOOTH POSITION
       if (smoothX === null) {
         smoothX = rawX;
         smoothY = rawY;
       } else {
-        smoothX = smooth(smoothX, rawX, SMOOTHING);
-        smoothY = smooth(smoothY, rawY, SMOOTHING);
+        smoothX = lerp(smoothX, rawX, SMOOTHING);
+        smoothY = lerp(smoothY, rawY, SMOOTHING);
       }
 
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 4;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-
-      if (pinchDist < PINCH_THRESHOLD) {
-        if (isDrawing && lastX !== null) {
-          ctx.beginPath();
-          ctx.moveTo(lastX, lastY);
-
-          // ✨ quadratic smoothing
-          const midX = (lastX + smoothX) / 2;
-          const midY = (lastY + smoothY) / 2;
-          ctx.quadraticCurveTo(lastX, lastY, midX, midY);
-          ctx.stroke();
-        }
-
+      // ✋ HYSTERESIS LOGIC
+      if (!isDrawing && pinchDist < PINCH_START) {
+        isDrawing = true;
         lastX = smoothX;
         lastY = smoothY;
-        isDrawing = true;
-      } else {
-        // lift pen
-        lastX = null;
-        lastY = null;
-        smoothX = null;
-        smoothY = null;
+      }
+
+      if (isDrawing && pinchDist > PINCH_END) {
         isDrawing = false;
+        lastX = lastY = smoothX = smoothY = null;
+      }
+
+      // ✍️ DRAW
+      if (isDrawing && lastX !== null) {
+        const moveDist = Math.hypot(smoothX - lastX, smoothY - lastY);
+        if (moveDist > MIN_MOVE) {
+          ctx.strokeStyle = "black";
+          ctx.lineWidth = 4;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+
+          ctx.beginPath();
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(smoothX, smoothY);
+          ctx.stroke();
+
+          lastX = smoothX;
+          lastY = smoothY;
+        }
       }
     }
   }
@@ -114,5 +103,3 @@ clearBtn.onclick = () => {
   lastX = lastY = smoothX = smoothY = null;
   isDrawing = false;
 };
-
-
