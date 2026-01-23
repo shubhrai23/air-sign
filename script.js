@@ -13,7 +13,7 @@ let isDrawing = false;
 
 // ======== CONFIG (tweakable) ========
 const PINCH_THRESHOLD = 22;   // tighter pinch
-const SMOOTHING = 0.75;       // higher = smoother (0.6–0.85)
+const SMOOTHING = 0.85;       // higher = smoother (0.6–0.85)
 
 // ================= CAMERA =================
 startBtn.onclick = async () => {
@@ -114,4 +114,5 @@ clearBtn.onclick = () => {
   lastX = lastY = smoothX = smoothY = null;
   isDrawing = false;
 };
+
 
