@@ -7,7 +7,13 @@ const clearBtn = document.getElementById("clear");
 let model;
 let lastX = null;
 let lastY = null;
+let smoothX = null;
+let smoothY = null;
 let isDrawing = false;
+
+// ======== CONFIG (tweakable) ========
+const PINCH_THRESHOLD = 28;   // tighter pinch
+const SMOOTHING = 0.75;       // higher = smoother (0.6–0.85)
 
 // ================= CAMERA =================
 startBtn.onclick = async () => {
@@ -19,7 +25,7 @@ startBtn.onclick = async () => {
     startBtn.style.display = "none";
     await loadModel();
     requestAnimationFrame(loop);
-  } catch (e) {
+  } catch {
     alert("Camera permission denied");
   }
 };
@@ -27,7 +33,6 @@ startBtn.onclick = async () => {
 // ================= MODEL =================
 async function loadModel() {
   model = await handpose.load();
-  console.log("HandPose loaded");
 }
 
 // ================= CANVAS SIZE =================
@@ -36,9 +41,13 @@ video.onloadedmetadata = () => {
   canvas.height = video.videoHeight;
 };
 
-// ================= PINCH UTILS =================
+// ================= UTILS =================
 function distance(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+function smooth(prev, curr, factor) {
+  return prev * factor + curr * (1 - factor);
 }
 
 // ================= MAIN LOOP =================
@@ -48,43 +57,51 @@ async function loop() {
 
     if (predictions.length > 0) {
       const lm = predictions[0].landmarks;
-
       const index = lm[8];
       const thumb = lm[4];
 
       const pinchDist = distance(index, thumb);
 
-      // ✅ PINCH THRESHOLD (tuned for phones)
-      const PINCH_THRESHOLD = 40;
+      const rawX = canvas.width - index[0]; // mirror
+      const rawY = index[1];
 
-      const x = canvas.width - index[0]; // mirror
-      const y = index[1];
+      // 🔥 SMOOTH POSITION
+      if (smoothX === null) {
+        smoothX = rawX;
+        smoothY = rawY;
+      } else {
+        smoothX = smooth(smoothX, rawX, SMOOTHING);
+        smoothY = smooth(smoothY, rawY, SMOOTHING);
+      }
 
       ctx.strokeStyle = "black";
       ctx.lineWidth = 4;
       ctx.lineCap = "round";
+      ctx.lineJoin = "round";
 
       if (pinchDist < PINCH_THRESHOLD) {
-        // DRAW
         if (isDrawing && lastX !== null) {
           ctx.beginPath();
           ctx.moveTo(lastX, lastY);
-          ctx.lineTo(x, y);
+
+          // ✨ quadratic smoothing
+          const midX = (lastX + smoothX) / 2;
+          const midY = (lastY + smoothY) / 2;
+          ctx.quadraticCurveTo(lastX, lastY, midX, midY);
           ctx.stroke();
         }
-        lastX = x;
-        lastY = y;
+
+        lastX = smoothX;
+        lastY = smoothY;
         isDrawing = true;
       } else {
-        // STOP DRAWING
+        // lift pen
         lastX = null;
         lastY = null;
+        smoothX = null;
+        smoothY = null;
         isDrawing = false;
       }
-    } else {
-      lastX = null;
-      lastY = null;
-      isDrawing = false;
     }
   }
 
@@ -94,7 +111,6 @@ async function loop() {
 // ================= CLEAR =================
 clearBtn.onclick = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  lastX = null;
-  lastY = null;
+  lastX = lastY = smoothX = smoothY = null;
   isDrawing = false;
 };
