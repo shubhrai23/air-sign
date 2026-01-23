@@ -1,3 +1,4 @@
+alert("script loaded");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -126,3 +127,4 @@ clearBtn.onclick = () => {
   lastX = lastY = smoothX = smoothY = null;
   lockedFinger = null;
 };
+
