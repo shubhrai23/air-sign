@@ -7,7 +7,7 @@ const clearBtn = document.getElementById("clear");
 let model;
 let lastX = null;
 let lastY = null;
-let drawing = false;
+let isDrawing = false;
 
 // ================= CAMERA =================
 startBtn.onclick = async () => {
@@ -27,7 +27,7 @@ startBtn.onclick = async () => {
 // ================= MODEL =================
 async function loadModel() {
   model = await handpose.load();
-  console.log("HandPose model loaded");
+  console.log("HandPose loaded");
 }
 
 // ================= CANVAS SIZE =================
@@ -36,38 +36,55 @@ video.onloadedmetadata = () => {
   canvas.height = video.videoHeight;
 };
 
+// ================= PINCH UTILS =================
+function distance(a, b) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
 // ================= MAIN LOOP =================
 async function loop() {
   if (model && video.readyState === 4) {
     const predictions = await model.estimateHands(video);
 
     if (predictions.length > 0) {
-      const landmarks = predictions[0].landmarks;
+      const lm = predictions[0].landmarks;
 
-      // Index fingertip = landmark 8
-      const [xRaw, yRaw] = landmarks[8];
+      const index = lm[8];
+      const thumb = lm[4];
 
-      const x = canvas.width - xRaw; // mirror fix
-      const y = yRaw;
+      const pinchDist = distance(index, thumb);
+
+      // ✅ PINCH THRESHOLD (tuned for phones)
+      const PINCH_THRESHOLD = 40;
+
+      const x = canvas.width - index[0]; // mirror
+      const y = index[1];
 
       ctx.strokeStyle = "black";
       ctx.lineWidth = 4;
       ctx.lineCap = "round";
 
-      if (lastX !== null) {
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+      if (pinchDist < PINCH_THRESHOLD) {
+        // DRAW
+        if (isDrawing && lastX !== null) {
+          ctx.beginPath();
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+        lastX = x;
+        lastY = y;
+        isDrawing = true;
+      } else {
+        // STOP DRAWING
+        lastX = null;
+        lastY = null;
+        isDrawing = false;
       }
-
-      lastX = x;
-      lastY = y;
-      drawing = true;
     } else {
       lastX = null;
       lastY = null;
-      drawing = false;
+      isDrawing = false;
     }
   }
 
@@ -79,4 +96,5 @@ clearBtn.onclick = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   lastX = null;
   lastY = null;
+  isDrawing = false;
 };
