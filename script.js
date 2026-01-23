@@ -4,7 +4,7 @@ const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("start");
 const clearBtn = document.getElementById("clear");
 
-let model;
+let model = null;
 
 // drawing state
 let isDrawing = false;
@@ -14,108 +14,104 @@ let smoothX = null;
 let smoothY = null;
 let lockedFinger = null;
 
-// ======== CONFIG (TUNED FOR SIGNATURES) ========
-const PINCH_START = 26;   // must be this tight to start drawing
-const PINCH_END = 40;     // must open this much to stop
-const SMOOTHING = 0.8;    // higher = smoother (0.75–0.85)
-const MIN_MOVE = 2;       // ignore micro jitter (px)
+// ===== CONFIG (TUNED FOR STABILITY) =====
+const PINCH_START = 26;   // start drawing
+const PINCH_END = 42;     // stop drawing (hysteresis)
+const SMOOTHING = 0.8;    // 0.75–0.85 sweet spot
+const MIN_MOVE = 2;       // px
 const LINE_WIDTH = 4;
 
-// ================= CAMERA =================
+// ---------- CAMERA ----------
 startBtn.onclick = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user" }
-    });
-    video.srcObject = stream;
-    startBtn.style.display = "none";
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user" }
+  });
+  video.srcObject = stream;
+  startBtn.style.display = "none";
 
-    model = await handpose.load();
-    requestAnimationFrame(loop);
-  } catch (e) {
-    alert("Camera permission denied");
-  }
+  model = await handpose.load();
+  requestAnimationFrame(loop);
 };
 
-// ================= CANVAS SIZE =================
+// ---------- CANVAS SIZE ----------
 video.onloadedmetadata = () => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 };
 
-// ================= UTILS =================
+// ---------- UTILS ----------
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const lerp = (p, c, f) => p * f + c * (1 - f);
 
-// choose finger closest to thumb (index vs middle)
-function pickDrawingFinger(lm, thumb) {
+// choose index or middle finger (closest to thumb)
+function pickFinger(lm, thumb) {
   const index = lm[8];
   const middle = lm[12];
 
-  const dIndex = dist(index, thumb);
-  const dMiddle = dist(middle, thumb);
-
-  return dIndex < dMiddle ? index : middle;
+  return dist(index, thumb) < dist(middle, thumb) ? index : middle;
 }
 
-// ================= MAIN LOOP =================
+// ---------- MAIN LOOP ----------
 async function loop() {
-  if (model && video.readyState === 4) {
-    const preds = await model.estimateHands(video);
+  if (!model || video.readyState !== 4) {
+    requestAnimationFrame(loop);
+    return;
+  }
 
-    if (preds.length) {
-      const lm = preds[0].landmarks;
-      const thumb = lm[4];
+  const preds = await model.estimateHands(video);
 
-      // 🔒 lock finger for whole stroke
-      if (!lockedFinger) {
-        lockedFinger = pickDrawingFinger(lm, thumb);
-      }
+  if (preds.length) {
+    const lm = preds[0].landmarks;
+    const thumb = lm[4];
 
-      const pinchDist = dist(lockedFinger, thumb);
+    // lock finger for whole stroke
+    if (!lockedFinger) {
+      lockedFinger = pickFinger(lm, thumb);
+    }
 
-      const rawX = canvas.width - lockedFinger[0]; // mirror
-      const rawY = lockedFinger[1];
+    const pinchDist = dist(lockedFinger, thumb);
 
-      // smooth coordinates
-      if (smoothX === null) {
-        smoothX = rawX;
-        smoothY = rawY;
-      } else {
-        smoothX = lerp(smoothX, rawX, SMOOTHING);
-        smoothY = lerp(smoothY, rawY, SMOOTHING);
-      }
+    const rawX = canvas.width - lockedFinger[0]; // mirror
+    const rawY = lockedFinger[1];
 
-      // ✋ HYSTERESIS
-      if (!isDrawing && pinchDist < PINCH_START) {
-        isDrawing = true;
+    // smooth position
+    if (smoothX === null) {
+      smoothX = rawX;
+      smoothY = rawY;
+    } else {
+      smoothX = lerp(smoothX, rawX, SMOOTHING);
+      smoothY = lerp(smoothY, rawY, SMOOTHING);
+    }
+
+    // hysteresis
+    if (!isDrawing && pinchDist < PINCH_START) {
+      isDrawing = true;
+      lastX = smoothX;
+      lastY = smoothY;
+    }
+
+    if (isDrawing && pinchDist > PINCH_END) {
+      isDrawing = false;
+      lastX = lastY = smoothX = smoothY = null;
+      lockedFinger = null;
+    }
+
+    // draw
+    if (isDrawing && lastX !== null) {
+      const move = Math.hypot(smoothX - lastX, smoothY - lastY);
+      if (move > MIN_MOVE) {
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = LINE_WIDTH;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(smoothX, smoothY);
+        ctx.stroke();
+
         lastX = smoothX;
         lastY = smoothY;
-      }
-
-      if (isDrawing && pinchDist > PINCH_END) {
-        isDrawing = false;
-        lastX = lastY = smoothX = smoothY = null;
-        lockedFinger = null;
-      }
-
-      // ✍️ DRAW
-      if (isDrawing && lastX !== null) {
-        const moveDist = Math.hypot(smoothX - lastX, smoothY - lastY);
-        if (moveDist > MIN_MOVE) {
-          ctx.strokeStyle = "black";
-          ctx.lineWidth = LINE_WIDTH;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-
-          ctx.beginPath();
-          ctx.moveTo(lastX, lastY);
-          ctx.lineTo(smoothX, smoothY);
-          ctx.stroke();
-
-          lastX = smoothX;
-          lastY = smoothY;
-        }
       }
     }
   }
@@ -123,7 +119,7 @@ async function loop() {
   requestAnimationFrame(loop);
 }
 
-// ================= CLEAR =================
+// ---------- CLEAR ----------
 clearBtn.onclick = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   isDrawing = false;
