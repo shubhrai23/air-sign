@@ -1,4 +1,3 @@
-alert("script loaded");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -15,24 +14,33 @@ let smoothX = null;
 let smoothY = null;
 let lockedFinger = null;
 
-// ===== CONFIG (TUNED FOR STABILITY) =====
-const PINCH_START = 26;   // start drawing
-const PINCH_END = 42;     // stop drawing (hysteresis)
-const SMOOTHING = 0.8;    // 0.75–0.85 sweet spot
-const MIN_MOVE = 2;       // px
+// latest hand data (updated by ML loop)
+let latestLandmarks = null;
+
+// ===== CONFIG =====
+const PINCH_START = 26;
+const PINCH_END = 42;
+const SMOOTHING = 0.8;
+const MIN_MOVE = 2;
 const LINE_WIDTH = 4;
+const INFERENCE_INTERVAL = 100; // ms (~10 FPS)
 
 // ---------- CAMERA ----------
 startBtn.onclick = async () => {
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: "user" }
   });
+
   video.srcObject = stream;
+  video.muted = true;       // REQUIRED for iOS
+  video.playsInline = true;
+  await video.play();       // 🔥 FORCE playback
+
   startBtn.style.display = "none";
 
   model = await handpose.load();
-  alert("model loaded");
-  requestAnimationFrame(loop);
+  startInferenceLoop();
+  requestAnimationFrame(drawLoop);
 };
 
 // ---------- CANVAS SIZE ----------
@@ -49,34 +57,34 @@ const lerp = (p, c, f) => p * f + c * (1 - f);
 function pickFinger(lm, thumb) {
   const index = lm[8];
   const middle = lm[12];
-
   return dist(index, thumb) < dist(middle, thumb) ? index : middle;
 }
 
-// ---------- MAIN LOOP ----------
-async function loop() {
-  if (!model || video.readyState !== 4) {
-    requestAnimationFrame(loop);
-    return;
-  }
+// ---------- HANDPOSE LOOP (THROTTLED) ----------
+function startInferenceLoop() {
+  setInterval(async () => {
+    if (!model || video.readyState !== 4) return;
 
-  const preds = await model.estimateHands(video);
+    const preds = await model.estimateHands(video);
+    latestLandmarks = preds.length ? preds[0].landmarks : null;
+  }, INFERENCE_INTERVAL);
+}
 
-  if (preds.length) {
-    const lm = preds[0].landmarks;
+// ---------- DRAW LOOP (FAST & LIGHT) ----------
+function drawLoop() {
+  if (latestLandmarks) {
+    const lm = latestLandmarks;
     const thumb = lm[4];
 
-    // lock finger for whole stroke
     if (!lockedFinger) {
       lockedFinger = pickFinger(lm, thumb);
     }
 
     const pinchDist = dist(lockedFinger, thumb);
 
-    const rawX = canvas.width - lockedFinger[0]; // mirror
+    const rawX = canvas.width - lockedFinger[0];
     const rawY = lockedFinger[1];
 
-    // smooth position
     if (smoothX === null) {
       smoothX = rawX;
       smoothY = rawY;
@@ -85,7 +93,6 @@ async function loop() {
       smoothY = lerp(smoothY, rawY, SMOOTHING);
     }
 
-    // hysteresis
     if (!isDrawing && pinchDist < PINCH_START) {
       isDrawing = true;
       lastX = smoothX;
@@ -98,7 +105,6 @@ async function loop() {
       lockedFinger = null;
     }
 
-    // draw
     if (isDrawing && lastX !== null) {
       const move = Math.hypot(smoothX - lastX, smoothY - lastY);
       if (move > MIN_MOVE) {
@@ -118,7 +124,7 @@ async function loop() {
     }
   }
 
-  requestAnimationFrame(loop);
+  requestAnimationFrame(drawLoop);
 }
 
 // ---------- CLEAR ----------
@@ -128,5 +134,3 @@ clearBtn.onclick = () => {
   lastX = lastY = smoothX = smoothY = null;
   lockedFinger = null;
 };
-
-
