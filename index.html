@@ -2,24 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Air Draw</title>
+  <title>Air Signature (HandPose)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <h2>Air Draw</h2>
+  <h2>✍️ Air Signature</h2>
+  <p>Move your index finger in the air</p>
 
   <div class="container">
-    <video id="video" autoplay playsinline width="640" height="480"></video>
+    <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
   </div>
 
+  <button id="start">Start Camera</button>
   <button id="clear">Clear</button>
 
-  <!-- REQUIRED MEDIAPIPE FILES -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
 
   <script src="script.js"></script>
 </body>
