@@ -2,20 +2,24 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
+let lastX = null;
+let lastY = null;
+
 // CAMERA
 navigator.mediaDevices.getUserMedia({ video: true })
   .then(stream => video.srcObject = stream)
-  .catch(() => alert("Camera error"));
+  .catch(err => alert("Camera error"));
 
 // SYNC CANVAS SIZE
-video.addEventListener("loadedmetadata", () => {
+video.onloadedmetadata = () => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-});
+};
 
-// MEDIAPIPE
+// MEDIAPIPE HANDS (WASM FIX IS HERE)
 const hands = new Hands({
-  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+  locateFile: file =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
 });
 
 hands.setOptions({
@@ -24,23 +28,20 @@ hands.setOptions({
   minTrackingConfidence: 0.5
 });
 
-let lastX = null;
-let lastY = null;
-
-hands.onResults(res => {
+hands.onResults(results => {
   console.log("HAND RESULTS FIRED");
-  if (!res.multiHandLandmarks) {
+
+  if (!results.multiHandLandmarks) {
     lastX = null;
     lastY = null;
     return;
   }
 
-  const p = res.multiHandLandmarks[0][8];
-
+  const p = results.multiHandLandmarks[0][8];
   const x = p.x * canvas.width;
   const y = p.y * canvas.height;
 
-  ctx.strokeStyle = "red";   // VERY visible
+  ctx.strokeStyle = "red";
   ctx.lineWidth = 5;
   ctx.lineCap = "round";
 
@@ -53,9 +54,9 @@ hands.onResults(res => {
 
   lastX = x;
   lastY = y;
-});
+};
 
-// MANUAL FRAME LOOP (NO Camera helper)
+// 🔥 MANUAL FRAME LOOP (NO Camera helper)
 async function loop() {
   if (video.readyState >= 2) {
     await hands.send({ image: video });
@@ -70,4 +71,3 @@ document.getElementById("clear").onclick = () => {
   lastX = null;
   lastY = null;
 };
-
