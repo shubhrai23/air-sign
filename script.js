@@ -31,6 +31,7 @@ startBtn.onclick = async () => {
   startBtn.style.display = "none";
 
   model = await handpose.load();
+  alert("model loaded");
   requestAnimationFrame(loop);
 };
 
@@ -127,4 +128,5 @@ clearBtn.onclick = () => {
   lastX = lastY = smoothX = smoothY = null;
   lockedFinger = null;
 };
+
 
